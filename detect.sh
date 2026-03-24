@@ -99,8 +99,57 @@ check_litellm_version() {
         fi
     fi
 
+    # Scan ALL virtualenvs, pyenv versions, and site-packages on disk
+    info "Scanning all Python environments on disk (this may take a moment)..."
+    while IFS= read -r metadata; do
+        if [[ -n "$metadata" ]]; then
+            local env_version
+            env_version=$(grep -i "^Version:" "$metadata" 2>/dev/null | awk '{print $2}')
+            local env_dir
+            env_dir=$(dirname "$(dirname "$metadata")")
+            if [[ -n "$env_version" ]]; then
+                found_any=1
+                if [[ "$env_version" == "1.82.7" || "$env_version" == "1.82.8" ]]; then
+                    bad "litellm ${env_version} in ${env_dir} — COMPROMISED VERSION"
+                else
+                    ok "litellm ${env_version} in ${env_dir}"
+                fi
+            fi
+        fi
+    done < <(find "${HOME}" /usr/local /opt \
+        -path "*/litellm-*.dist-info/METADATA" -o \
+        -path "*/litellm-*.egg-info/PKG-INFO" \
+        2>/dev/null || true)
+
+    # Also check uv cache for downloaded compromised wheels
+    if [[ -d "${HOME}/.cache/uv" ]]; then
+        while IFS= read -r cached; do
+            if [[ -n "$cached" ]]; then
+                if echo "$cached" | grep -qE "litellm-1\.82\.[78]"; then
+                    bad "Compromised litellm wheel cached: ${cached}"
+                    found_any=1
+                fi
+            fi
+        done < <(find "${HOME}/.cache/uv" -name "litellm-*" -type f 2>/dev/null || true)
+    fi
+
+    # Check pip cache too
+    local pip_cache="${HOME}/.cache/pip ${HOME}/Library/Caches/pip"
+    for cache_dir in $pip_cache; do
+        if [[ -d "$cache_dir" ]]; then
+            while IFS= read -r cached; do
+                if [[ -n "$cached" ]]; then
+                    if echo "$cached" | grep -qE "litellm-1\.82\.[78]"; then
+                        bad "Compromised litellm wheel in pip cache: ${cached}"
+                        found_any=1
+                    fi
+                fi
+            done < <(find "$cache_dir" -name "litellm-*" -type f 2>/dev/null || true)
+        fi
+    done
+
     if [[ "$found_any" -eq 0 ]]; then
-        ok "litellm is not installed"
+        ok "litellm is not installed in any Python environment"
     fi
 }
 

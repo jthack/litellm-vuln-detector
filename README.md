@@ -24,7 +24,7 @@ cd litellm-vuln-detector
 
 | Check | Description |
 |-------|-------------|
-| **Installed version** | Detects litellm 1.82.7/1.82.8 via pip, uv, conda |
+| **Installed version** | Detects litellm 1.82.7/1.82.8 via pip, uv, conda, AND scans ALL virtualenvs/pyenv/site-packages on disk |
 | **Malicious .pth file** | Searches for `litellm_init.pth` in site-packages, uv cache, virtualenvs |
 | **Persistence backdoor** | Checks for `~/.config/sysmon/sysmon.py` and systemd user service |
 | **Exfiltration domain** | Scans shell history and logs for `models.litellm.cloud` |
